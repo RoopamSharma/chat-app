@@ -9,6 +9,7 @@
       form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
       form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
       .askname form{
+        display: none;
         background-color: white;
         position: absolute;
         text-align: center;
@@ -38,9 +39,11 @@
     </style>
   </head>
   <body>
+    <div>
     <div id="username">
       Welcome
     </div>
+  </div>
     <div class="askname">
       <form id='2' method="POST">
       <label style="display:block;margin-top:20px;margin-bottom:10px">Select your nickname</label>
@@ -66,8 +69,14 @@
       return false;
     });
     socket.on('chat message', function(msg){
-      $('#messages').append($('<span>').text(msg['id']))
+      $('#messages').append($('<span>').text(msg['id']));
       $('#messages').append($('<li>').text(msg['msg']));
+    });
+    socket.on('addtab',function(name){
+      console.log("addtab: "+name);
+      if(name==$('#nickname').val()){
+          socket.emit('addtab',name);
+      }
     });
     $('#addName').click(function(){
       var username = $('#nickname').val();
@@ -78,9 +87,11 @@
     });
     $('#2').submit(function(e){
       e.preventDefault(); // prevents page reloading
+      console.log(socket);
       $.post('/addname', {'name':$('#nickname').val()}, function(resp) {
             console.log(resp);
       });
+      return false;
     });
     $.post('/checkname', '', function(resp) {
           console.log(resp);
@@ -91,6 +102,9 @@
             $('body').css("background-color","white");
             $('#username').append("<span>"+username+"</span>");
             $('#username').css("display","block");
+          }
+          else{
+            $('.askname form').css("display","block");
           }
       });
   });
