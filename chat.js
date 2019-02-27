@@ -44,6 +44,12 @@ app.post('/addtabinsession',function(req,res){
   res.send("Success");
 });
 
+app.post('/rmusersess',function(req,res){
+  req.session.username = undefined;
+  req.session.currtab = undefined;
+  res.send("Success");
+});
+
 // check user name in session and redirect previous tab to other.html
 app.post('/checkname', function(req, res){
   console.log(req.session.username);
@@ -105,6 +111,17 @@ io.on('connection', function(socket){
   });
   socket.on('disconnect', function(){
     console.log('disconnected: '+socket.id);
+    const dbclient = new MongoClient(url,{useNewUrlParser: true});
+    dbclient.connect(function(err) {
+      const db = dbclient.db(dbName);
+      if (err) throw err;
+      var myquery = { 'tabid': socket.id };
+      db.collection("users").deleteOne(myquery, function(err, obj) {
+        if (err) throw err;
+        console.log("1 document deleted");
+      });
+      dbclient.close();
+    });
     io.emit('chat message','someone left');
   });
 });
