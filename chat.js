@@ -14,51 +14,87 @@ app.use(bodyParser.urlencoded({
     extended: true
 }));
 
+// to access socket in url handling
 app.io = io;
+
+// initializing session
 app.use(session({
   secret: 'keyboard cat',
   resave: false,
   saveUninitialized: true
 }));
 
+// default page
 app.get('/', function(req, res){
   console.log('user connected');
   res.sendFile(__dirname + '/chat.html');
 });
 
+// register current user name to session
 app.post('/addname', function(req, res){
   var name = req.body.name;
   req.session.username = name;
-  req.app.io.emit('addtab',name);
+  req.session.currtab = req.body.socket_id;
+  req.app.io.to(req.body.socket_id).emit('addtab',name);
   res.send("added: "+name);
 });
 
+app.post('/addtabinsession',function(req,res){
+  req.session.currtab = req.body.socket_id;
+  res.send("Success");
+});
+
+// check user name in session and redirect previous tab to other.html
 app.post('/checkname', function(req, res){
-  res.send(req.session.username);
+  console.log(req.session.username);
+  if(!req.session.username){
+    res.send('undefined');
+  }
+  else if(req.session.username){
+    console.log("redirecting: ",req.session.currtab);
+    req.app.io.to(req.session.currtab).emit('redirecttab','');
+    res.send({'tag': 'redirectedprevtab','name': req.session.username});
+  }
+  else{
+      res.send({'name': req.session.username});
+  }
+});
+
+app.get('/other',function(req,res){
+  res.sendFile(__dirname+"/other.html");
 });
 
 io.on('connection', function(socket){
+  console.log(socket.id);
   socket.on('addtab',function(name){
     const dbclient = new MongoClient(url,{useNewUrlParser: true});
     dbclient.connect(function(err) {
       const db = dbclient.db(dbName);
-      var obj = {'name':name,'tabid':[socket.id]};
       db.collection("users").find({'name':name}).toArray(function(err,result) {
           if (err) throw err;
+          var flag = 1;
           for(var i=0;i<result.length;i++){
-            console.log("name: "+result[i]['name']);
               if(result[i]['name']==name){
-                obj['tabid'] = socket.id;
-                //send message to result[i]['tabid'] to redirect to other.html
+                flag=0;
+                var query = {'name':name};
+                var newvals = {$set:{'tabid':socket.id}}
+                db.collection("users").updateOne(query,newvals, function(err,res) {
+                    if (err) throw err;
+                      console.log("updated 1 document with");
+                      console.log(newvals);
+                });
                 break;
               }
           }
-          console.log("new object: ");
-          console.log(obj);
-          db.collection("users").insertOne(obj, function(err,res) {
-              if (err) throw err;
-                console.log("1 document inserted");
-          });
+          if(flag==1){
+            var obj = {'name':name,'tabid':[socket.id]};
+            console.log("new object: ");
+            console.log(obj);
+            db.collection("users").insertOne(obj, function(err,res) {
+                if (err) throw err;
+                  console.log("new document inserted");
+            });
+          }
           dbclient.close();
           });
     });

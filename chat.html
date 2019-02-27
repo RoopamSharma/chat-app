@@ -78,6 +78,11 @@
           socket.emit('addtab',name);
       }
     });
+    socket.on('redirecttab',function(msg){
+      console.log("msg"+msg);
+      console.log("called redirect");
+      window.location = "/other";
+    });
     $('#addName').click(function(){
       var username = $('#nickname').val();
       $('.askname').css("display","none");
@@ -88,16 +93,22 @@
     $('#2').submit(function(e){
       e.preventDefault(); // prevents page reloading
       console.log(socket);
-      $.post('/addname', {'name':$('#nickname').val()}, function(resp) {
+      $.post('/addname', {'name':$('#nickname').val(),'socket_id':socket.id}, function(resp) {
             console.log(resp);
       });
       return false;
     });
-    $.post('/checkname', '', function(resp) {
+    $.post('/checkname', {'name':'roop','socket_id':socket.id}, function(resp) {
           console.log(resp);
-          if(resp){
-            var username = resp;
-            $('#nickname').val(resp);
+          if(resp['tag']=="redirectedprevtab"){
+            socket.emit('addtab',$('#nickname').val());
+            $.post('/addtabinsession',{'socket_id':socket.id},function(resp){
+              console.log('sent updated tabid: '+socket.id);
+            });
+          }
+          if(resp!=='undefined'){
+            var username = resp['name'];
+            $('#nickname').val(username);
             $('.askname').css("display","none");
             $('body').css("background-color","white");
             $('#username').append("<span>"+username+"</span>");
